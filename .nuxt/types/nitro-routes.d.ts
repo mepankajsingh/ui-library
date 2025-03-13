@@ -3,6 +3,33 @@ import type { Serialize, Simplify } from "nitropack/types";
 declare module "nitropack/types" {
   type Awaited<T> = T extends PromiseLike<infer U> ? Awaited<U> : T
   interface InternalApi {
+    '/api/framework/:slug': {
+      'default': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/framework/[slug]').default>>>>
+    }
+    '/api/frameworks': {
+      'default': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/frameworks').default>>>>
+    }
+    '/api/libraries': {
+      'default': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/libraries').default>>>>
+    }
+    '/api/library/:slug': {
+      'default': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/library/[slug]').default>>>>
+    }
+    '/api/search': {
+      'default': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/search').default>>>>
+    }
+    '/api/tag/:slug': {
+      'default': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/tag/[slug]').default>>>>
+    }
+    '/api/tag/:slug/frameworks': {
+      'default': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/tag/[slug]/frameworks').default>>>>
+    }
+    '/api/tag/:slug/libraries': {
+      'default': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/tag/[slug]/libraries').default>>>>
+    }
+    '/api/tags': {
+      'default': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/tags').default>>>>
+    }
     '/__nuxt_error': {
       'default': Simplify<Serialize<Awaited<ReturnType<typeof import('../../node_modules/nuxt/dist/core/runtime/nitro/handlers/renderer').default>>>>
     }

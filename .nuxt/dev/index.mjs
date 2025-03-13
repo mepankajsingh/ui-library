@@ -1,9 +1,10 @@
 import process from 'node:process';globalThis._importMeta_={url:import.meta.url,env:process.env};import { tmpdir } from 'node:os';
-import { getRequestHeader, setResponseHeaders, setResponseStatus, send, getRequestHeaders, setResponseHeader, getRequestURL, getResponseHeader, defineEventHandler, handleCacheHeaders, splitCookiesString, createEvent, fetchWithEvent, isEvent, eventHandler, setHeaders, sendRedirect, proxyRequest, createApp, createRouter as createRouter$1, toNodeListener, lazyEventHandler, getResponseStatus, createError, getRouterParam, readBody, getQuery as getQuery$1, getResponseStatusText } from 'file:///home/project/node_modules/h3/dist/index.mjs';
+import { getRequestHeader, setResponseHeaders, setResponseStatus, send, getRequestHeaders, setResponseHeader, getRequestURL, getResponseHeader, defineEventHandler, handleCacheHeaders, splitCookiesString, createEvent, fetchWithEvent, isEvent, eventHandler, setHeaders, sendRedirect, proxyRequest, createApp, createRouter as createRouter$1, toNodeListener, lazyEventHandler, getResponseStatus, createError, getRouterParam, readBody, getQuery as getQuery$1, setCookie, getHeader, getResponseStatusText } from 'file:///home/project/node_modules/h3/dist/index.mjs';
 import { Server } from 'node:http';
 import { resolve, dirname, join } from 'node:path';
 import nodeCrypto from 'node:crypto';
 import { parentPort, threadId } from 'node:worker_threads';
+import { createServerClient, parseCookieHeader } from 'file:///home/project/node_modules/@supabase/ssr/dist/main/index.js';
 import { createRenderer, getRequestDependencies, getPreloadLinks, getPrefetchLinks } from 'file:///home/project/node_modules/vue-bundle-renderer/dist/runtime.mjs';
 import destr from 'file:///home/project/node_modules/destr/dist/index.mjs';
 import { withQuery, joinURL, withTrailingSlash, parseURL, withoutBase, getQuery, joinRelativeURL } from 'file:///home/project/node_modules/ufo/dist/index.mjs';
@@ -340,9 +341,27 @@ const plugins = [
 _kOOS7wTCq3rrmRFJgojYrQLxSHl76_K26OxuQvPET6o
 ];
 
+const _lazy_MPdYHZ = () => Promise.resolve().then(function () { return _slug_$5; });
+const _lazy_08YgoY = () => Promise.resolve().then(function () { return frameworks$3; });
+const _lazy_PzHuZV = () => Promise.resolve().then(function () { return libraries$3; });
+const _lazy_MqEnCi = () => Promise.resolve().then(function () { return _slug_$3; });
+const _lazy_FY8x3R = () => Promise.resolve().then(function () { return search$1; });
+const _lazy_dyDgqr = () => Promise.resolve().then(function () { return _slug_$1; });
+const _lazy_Hs4vmf = () => Promise.resolve().then(function () { return frameworks$1; });
+const _lazy_sbzcHp = () => Promise.resolve().then(function () { return libraries$1; });
+const _lazy_ieZKM5 = () => Promise.resolve().then(function () { return tags$1; });
 const _lazy_LwOoCo = () => Promise.resolve().then(function () { return renderer$1; });
 
 const handlers = [
+  { route: '/api/framework/:slug', handler: _lazy_MPdYHZ, lazy: true, middleware: false, method: undefined },
+  { route: '/api/frameworks', handler: _lazy_08YgoY, lazy: true, middleware: false, method: undefined },
+  { route: '/api/libraries', handler: _lazy_PzHuZV, lazy: true, middleware: false, method: undefined },
+  { route: '/api/library/:slug', handler: _lazy_MqEnCi, lazy: true, middleware: false, method: undefined },
+  { route: '/api/search', handler: _lazy_FY8x3R, lazy: true, middleware: false, method: undefined },
+  { route: '/api/tag/:slug', handler: _lazy_dyDgqr, lazy: true, middleware: false, method: undefined },
+  { route: '/api/tag/:slug/frameworks', handler: _lazy_Hs4vmf, lazy: true, middleware: false, method: undefined },
+  { route: '/api/tag/:slug/libraries', handler: _lazy_sbzcHp, lazy: true, middleware: false, method: undefined },
+  { route: '/api/tags', handler: _lazy_ieZKM5, lazy: true, middleware: false, method: undefined },
   { route: '/__nuxt_error', handler: _lazy_LwOoCo, lazy: true, middleware: false, method: undefined },
   { route: '/**', handler: _lazy_LwOoCo, lazy: true, middleware: false, method: undefined }
 ];
@@ -1435,6 +1454,317 @@ const errorDev = /*#__PURE__*/Object.freeze({
   template: template$1
 });
 
+async function fetchWithRetry(req, init) {
+  const retries = 3;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fetch(req, init);
+    } catch (error) {
+      if (init?.signal?.aborted) {
+        throw error;
+      }
+      if (attempt === retries) {
+        console.error(`Error fetching request ${req}`, error, init);
+        throw error;
+      }
+      console.warn(`Retrying fetch attempt ${attempt + 1} for request: ${req}`);
+    }
+  }
+  throw new Error("Unreachable code");
+}
+
+function buildAssetsDir() {
+  return useRuntimeConfig().app.buildAssetsDir;
+}
+function buildAssetsURL(...path) {
+  return joinRelativeURL(publicAssetsURL(), buildAssetsDir(), ...path);
+}
+function publicAssetsURL(...path) {
+  const app = useRuntimeConfig().app;
+  const publicBase = app.cdnURL || app.baseURL;
+  return path.length ? joinRelativeURL(publicBase, ...path) : publicBase;
+}
+
+const serverSupabaseClient = async (event) => {
+  if (!event.context._supabaseClient) {
+    const { url, key, cookiePrefix, cookieOptions, clientOptions: { auth = {}, global = {} } } = useRuntimeConfig().public.supabase;
+    event.context._supabaseClient = createServerClient(url, key, {
+      auth,
+      cookies: {
+        getAll: () => parseCookieHeader(getHeader(event, "Cookie") ?? ""),
+        setAll: (cookies) => cookies.forEach(({ name, value, options }) => setCookie(event, name, value, options))
+      },
+      cookieOptions: {
+        ...cookieOptions,
+        name: cookiePrefix
+      },
+      global: {
+        fetch: fetchWithRetry,
+        ...global
+      }
+    });
+  }
+  return event.context._supabaseClient;
+};
+
+const _slug_$4 = defineEventHandler(async (event) => {
+  var _a;
+  const client = await serverSupabaseClient(event);
+  const slug = (_a = event.context.params) == null ? void 0 : _a.slug;
+  if (!slug) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Framework slug is required"
+    });
+  }
+  const { data, error } = await client.from("framework").select(`
+      *,
+      tags:framework_tags(tag_id(id, name, slug, description))
+    `).eq("slug", slug).single();
+  if (error) {
+    throw createError({
+      statusCode: error.code === "PGRST116" ? 404 : 500,
+      statusMessage: error.code === "PGRST116" ? "Framework not found" : error.message
+    });
+  }
+  return data;
+});
+
+const _slug_$5 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  default: _slug_$4
+});
+
+const frameworks$2 = defineEventHandler(async (event) => {
+  const client = await serverSupabaseClient(event);
+  const { data, error } = await client.from("framework").select(`
+      *,
+      tags:framework_tags(tag_id(id, name, slug, description))
+    `);
+  if (error) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: error.message
+    });
+  }
+  return data;
+});
+
+const frameworks$3 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  default: frameworks$2
+});
+
+const libraries$2 = defineEventHandler(async (event) => {
+  const client = await serverSupabaseClient(event);
+  const { frameworkId } = getQuery$1(event);
+  let query = client.from("library").select(`
+      *,
+      framework:framework(id, name, slug),
+      tags:library_tags(tag_id(id, name, slug, description))
+    `);
+  if (frameworkId) {
+    query = query.eq("framework", frameworkId);
+  }
+  const { data, error } = await query;
+  if (error) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: error.message
+    });
+  }
+  return data;
+});
+
+const libraries$3 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  default: libraries$2
+});
+
+const _slug_$2 = defineEventHandler(async (event) => {
+  var _a;
+  const client = await serverSupabaseClient(event);
+  const slug = (_a = event.context.params) == null ? void 0 : _a.slug;
+  if (!slug) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Library slug is required"
+    });
+  }
+  const { data, error } = await client.from("library").select(`
+      *,
+      framework:framework(id, name, slug),
+      tags:library_tags(tag_id(id, name, slug, description))
+    `).eq("slug", slug).single();
+  if (error) {
+    throw createError({
+      statusCode: error.code === "PGRST116" ? 404 : 500,
+      statusMessage: error.code === "PGRST116" ? "Library not found" : error.message
+    });
+  }
+  return data;
+});
+
+const _slug_$3 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  default: _slug_$2
+});
+
+const search = defineEventHandler(async (event) => {
+  const client = await serverSupabaseClient(event);
+  const { q } = getQuery$1(event);
+  if (!q) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Search query is required"
+    });
+  }
+  const query = String(q);
+  const { data: libraries, error: librariesError } = await client.from("library").select(`
+      *,
+      framework:framework(id, name, slug),
+      tags:library_tags(tag_id(id, name, slug, description))
+    `).or(`name.ilike.%${query}%,description.ilike.%${query}%`);
+  if (librariesError) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: librariesError.message
+    });
+  }
+  const { data: frameworks, error: frameworksError } = await client.from("framework").select(`
+      *,
+      tags:framework_tags(tag_id(id, name, slug, description))
+    `).or(`name.ilike.%${query}%,description.ilike.%${query}%`);
+  if (frameworksError) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: frameworksError.message
+    });
+  }
+  return {
+    libraries: libraries || [],
+    frameworks: frameworks || []
+  };
+});
+
+const search$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  default: search
+});
+
+const _slug_ = defineEventHandler(async (event) => {
+  var _a;
+  const client = await serverSupabaseClient(event);
+  const slug = (_a = event.context.params) == null ? void 0 : _a.slug;
+  if (!slug) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Tag slug is required"
+    });
+  }
+  const { data, error } = await client.from("tags").select("*").eq("slug", slug).single();
+  if (error) {
+    throw createError({
+      statusCode: error.code === "PGRST116" ? 404 : 500,
+      statusMessage: error.code === "PGRST116" ? "Tag not found" : error.message
+    });
+  }
+  return data;
+});
+
+const _slug_$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  default: _slug_
+});
+
+const frameworks = defineEventHandler(async (event) => {
+  var _a;
+  const client = await serverSupabaseClient(event);
+  const slug = (_a = event.context.params) == null ? void 0 : _a.slug;
+  if (!slug) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Tag slug is required"
+    });
+  }
+  const { data: tag, error: tagError } = await client.from("tags").select("id").eq("slug", slug).single();
+  if (tagError) {
+    throw createError({
+      statusCode: tagError.code === "PGRST116" ? 404 : 500,
+      statusMessage: tagError.code === "PGRST116" ? "Tag not found" : tagError.message
+    });
+  }
+  const { data: frameworks, error: frameworksError } = await client.from("framework").select(`
+      *,
+      tags:framework_tags(tag_id(id, name, slug, description))
+    `).eq("framework_tags.tag_id", tag.id);
+  if (frameworksError) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: frameworksError.message
+    });
+  }
+  return frameworks;
+});
+
+const frameworks$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  default: frameworks
+});
+
+const libraries = defineEventHandler(async (event) => {
+  var _a;
+  const client = await serverSupabaseClient(event);
+  const slug = (_a = event.context.params) == null ? void 0 : _a.slug;
+  if (!slug) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Tag slug is required"
+    });
+  }
+  const { data: tag, error: tagError } = await client.from("tags").select("id").eq("slug", slug).single();
+  if (tagError) {
+    throw createError({
+      statusCode: tagError.code === "PGRST116" ? 404 : 500,
+      statusMessage: tagError.code === "PGRST116" ? "Tag not found" : tagError.message
+    });
+  }
+  const { data: libraries, error: librariesError } = await client.from("library").select(`
+      *,
+      framework:framework(id, name, slug),
+      tags:library_tags(tag_id(id, name, slug, description))
+    `).eq("library_tags.tag_id", tag.id);
+  if (librariesError) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: librariesError.message
+    });
+  }
+  return libraries;
+});
+
+const libraries$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  default: libraries
+});
+
+const tags = defineEventHandler(async (event) => {
+  const client = await serverSupabaseClient(event);
+  const { data, error } = await client.from("tags").select("*");
+  if (error) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: error.message
+    });
+  }
+  return data;
+});
+
+const tags$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  default: tags
+});
+
 const VueResolver = (_, value) => {
   return isRef(value) ? toValue(value) : value;
 };
@@ -1462,18 +1792,6 @@ function createHead(options = {}) {
 
 function resolveUnrefHeadInput(input) {
   return walkResolver(input, VueResolver);
-}
-
-function buildAssetsDir() {
-  return useRuntimeConfig().app.buildAssetsDir;
-}
-function buildAssetsURL(...path) {
-  return joinRelativeURL(publicAssetsURL(), buildAssetsDir(), ...path);
-}
-function publicAssetsURL(...path) {
-  const app = useRuntimeConfig().app;
-  const publicBase = app.cdnURL || app.baseURL;
-  return path.length ? joinRelativeURL(publicBase, ...path) : publicBase;
 }
 
 const APP_ROOT_OPEN_TAG = `<${appRootTag}${propsToString(appRootAttrs)}>`;

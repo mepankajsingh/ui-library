@@ -33,7 +33,7 @@
     <section class="py-12">
       <div class="container mx-auto px-4">
         <h2 class="text-2xl font-bold mb-6">Popular Frameworks</h2>
-        <div v-if="loading" class="flex justify-center py-8">
+        <div v-if="pending" class="flex justify-center py-8">
           <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
         </div>
         <div v-else-if="frameworks.length === 0" class="text-center py-8 text-gray-500">
@@ -56,7 +56,7 @@
     <section class="py-12 bg-gray-50">
       <div class="container mx-auto px-4">
         <h2 class="text-2xl font-bold mb-6">Featured Libraries</h2>
-        <div v-if="loading" class="flex justify-center py-8">
+        <div v-if="pending" class="flex justify-center py-8">
           <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
         </div>
         <div v-else-if="libraries.length === 0" class="text-center py-8 text-gray-500">
@@ -79,7 +79,7 @@
     <section class="py-12">
       <div class="container mx-auto px-4">
         <h2 class="text-2xl font-bold mb-6">Browse by Tags</h2>
-        <div v-if="loading" class="flex justify-center py-8">
+        <div v-if="pending" class="flex justify-center py-8">
           <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
         </div>
         <div v-else-if="tags.length === 0" class="text-center py-8 text-gray-500">
@@ -107,28 +107,19 @@ import { useRouter } from 'vue-router';
 
 const router = useRouter();
 const searchQuery = ref('');
-const loading = ref(true);
-const frameworks = ref([]);
-const libraries = ref([]);
-const tags = ref([]);
 
-onMounted(async () => {
-  try {
-    const [frameworksData, librariesData, tagsData] = await Promise.all([
-      useFrameworks(),
-      useLibraries(),
-      useTags()
-    ]);
-    
-    frameworks.value = frameworksData;
-    libraries.value = librariesData;
-    tags.value = tagsData;
-  } catch (error) {
-    console.error('Error loading homepage data:', error);
-  } finally {
-    loading.value = false;
-  }
-});
+// Use useFetch for SSR data fetching
+const { data: frameworksData, pending: frameworksPending } = await useFetch('/api/frameworks');
+const { data: librariesData, pending: librariesPending } = await useFetch('/api/libraries');
+const { data: tagsData, pending: tagsPending } = await useFetch('/api/tags');
+
+// Computed properties for the data
+const frameworks = computed(() => frameworksData.value || []);
+const libraries = computed(() => librariesData.value || []);
+const tags = computed(() => tagsData.value || []);
+
+// Compute overall pending state
+const pending = computed(() => frameworksPending.value || librariesPending.value || tagsPending.value);
 
 const search = () => {
   if (searchQuery.value.trim()) {
